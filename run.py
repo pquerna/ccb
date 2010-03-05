@@ -79,7 +79,7 @@ def boot_servers(driver, count, pubkey):
   return nodes
 
 def exec_wait(client, cmd):
-  log("Running `%s`")
+  log("[%s] Running `%s`" % (client.get_transport().getpeername()[0], cmd))
   stdin, stdout, stderr  = client.exec_command(cmd)
   stdin.close()
   return stdout.read(), stderr.read()
@@ -107,13 +107,15 @@ def push_files(key, local, servers):
     try:
       sftp = client.open_sftp()
       sftp.put(local, tarball)
-      print exec_wait(client, "tar -xvzf %s" % (tarball))
+      exec_wait(client, "tar -xvzf %s" % (tarball))
       dname = tarball[:tarball.rfind("-")]
       sftp.symlink(dname, "cassandra")
       conf = storage_conf(s, [x for x in servers if x != s])
       fp = sftp.open("cassandra/conf/storage-conf.xml", 'w')
       fp.write(conf)
       fp.close()
+      # we do need... java for this :)
+      exec_wait(client, "apt-get install -y openjdk-6-jdk")
     finally:
       client.close()
 
@@ -134,7 +136,7 @@ def main():
     #
   finally:
     print "Cleaning up "+ tempdir
-    #shutil.rmtree(tempdir)
+    shutil.rmtree(tempdir)
     log("Cleaning up any booted servers....")
     driver = get_libcloud_driver()
     [n.destroy() for n in driver.list_nodes() if n.name.find('cbench') != -1]
