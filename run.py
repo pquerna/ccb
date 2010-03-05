@@ -22,6 +22,7 @@ ARTIFACT_ROOT = HUDSON_ROOT + "lastSuccessfulBuild/artifact"
 
 import cassconf
 import paramiko
+from mako.template import Template
 from libcloud.types import Provider
 from libcloud.providers import get_driver
 from libcloud.deployment import SSHKeyDeployment
@@ -83,6 +84,14 @@ def exec_wait(client, cmd):
   stdin.close()
   return stdout.read(), stderr.read()
 
+def storage_conf(server, peers):
+  d = { "replication_factor": min(3, len(peers)+1),
+        "peers": [s.private_ip[0] for s in peers],
+        "interface": server.private_ip[0],
+        }
+  t = Template(filename='/docs/mytmpl.txt')
+  return t.render(**d)
+  
 def push_files(key, local, servers):
   tarball = local[local.rfind("/")+1:]
   for s in servers:
@@ -101,6 +110,10 @@ def push_files(key, local, servers):
       print exec_wait(client, "tar -xvzf %s" % (tarball))
       dname = tarball[:tarball.rfind("-")]
       sftp.symlink(dname, "cassandra")
+      conf = storage_conf(s, [x for x in servers if x != s])
+      fp = sftp.open("cassandra/conf/storage-conf.xml", 'w')
+      fp.write(conf)
+      fp.close()
     finally:
       client.close()
 
