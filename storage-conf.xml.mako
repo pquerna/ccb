@@ -94,7 +94,7 @@
    ~ Leaving this blank has the same effect it does for ListenAddress,
    ~ (i.e. it will be based on the configured hostname of the node).
   -->
-  <RPCAddress>%{interface}</RPCAddress>
+  <RPCAddress>${interface}</RPCAddress>
   <!-- RPC port (the port clients connect to). -->
   <RPCPort>9160</RPCPort>
   <!-- 
