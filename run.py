@@ -89,7 +89,7 @@ def storage_conf(server, peers):
         "peers": [s.private_ip[0] for s in peers],
         "interface": server.private_ip[0],
         }
-  t = Template(filename='/docs/mytmpl.txt')
+  t = Template(filename='storage-conf.xml.mako')
   return t.render(**d)
   
 def push_files(key, local, servers):
