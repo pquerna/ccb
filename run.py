@@ -205,10 +205,10 @@ def main():
     print master
   finally:
     print "Cleaning up "+ tempdir
-    #shutil.rmtree(tempdir)
+    shutil.rmtree(tempdir)
     log("Cleaning up any booted servers....")
-    #driver = get_libcloud_driver()
-    #[n.destroy() for n in driver.list_nodes() if n.name.find('cbench') != -1]
+    driver = get_libcloud_driver()
+    [n.destroy() for n in driver.list_nodes() if n.name.find('cbench') != -1]
 
 if __name__ == "__main__":
   main()
