@@ -1,7 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 
 source /usr/local/thrift/venv/bin/activate
-STRESS=python /root/stress.py
+# fuck it
+easy_install thrift
+STRESS="python /root/stress.py"
 
 $STRESS --operation insert \
   --num-keys=2000000 \
