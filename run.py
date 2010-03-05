@@ -102,10 +102,15 @@ def storage_conf(server, peers):
         "peers": [s.private_ip[0] for s in peers],
         "interface": server.private_ip[0],
         }
-  t = Template(filename='storage-conf.xml.mako')
+  t = Template(filename=pjoin(ROOT_DIR, 'storage-conf.xml.mako'))
   return t.render(**d)
 
-def push_master_files(key, master):
+def master_script(servers):
+  d = {"peers": ",".join([s.private_ip[0] for s in servers])}
+  t = Template(filename=pjoin(ROOT_DIR, 'runtests.sh.mako'))
+  return t.render(**d)
+
+def push_master_files(key, master, servers):
   conninfo = {'hostname': master.public_ip[0],
               'port': 22,
               'username': 'root',
@@ -121,6 +126,16 @@ def push_master_files(key, master):
     sftp.put(pjoin(ROOT_DIR, "py_and_thrift-ubuntu-bin.tar.bz2"), "py_and_thrift-ubuntu-bin.tar.bz2")
     exec_wait(client, "tar -xvjf py_and_thrift-ubuntu-bin.tar.bz2 -C /")
     sftp.put(pjoin(ROOT_DIR, "stress.py"), "stress.py")
+    sftp.put(pjoin(ROOT_DIR, "runtest.sh"), "stress.py")
+    conf = master_script(servers)
+    fp = sftp.open("/root/runtest.sh", 'w')
+    fp.write(conf)
+    fp.chmod(755)
+    fp.close()
+    log("Starting tests...")
+    exec_wait(client, "/root/runtest.sh")
+    sftp.get("/root/insert.txt", "insert.txt")
+    sftp.get("/root/read.txt", "read.txt")
   finally:
     client.close()
 
