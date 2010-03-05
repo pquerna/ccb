@@ -1,0 +1,9 @@
+
+# your rackspace username
+USERNAME=""
+# your rackspace secret key
+SECRET=""
+# number of nodes to use for the cassandra cluster,
+# we always boot CLUSTER_SIZE + 1, the extra node is used 
+# to run the benchmark client
+CLUSTER_SIZE=1

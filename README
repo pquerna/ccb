@@ -1,0 +1,3 @@
+Cassandra Cloud Benchmark boots up cloud servers, downloads the latest
+build from Hudson, installs Cassandra, and then runs the standard py_stress
+several times.
