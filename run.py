@@ -27,6 +27,7 @@ from libcloud.types import Provider
 from libcloud.providers import get_driver
 from libcloud.deployment import SSHKeyDeployment
 
+import os
 from os.path import join as pjoin
 import urllib2
 import tempfile
@@ -35,6 +36,8 @@ try:
   import simplejson as json
 except ImportError:
   import json
+
+ROOT_DIR = os.path.split(os.path.abspath(__file__))[0]
 
 def log(str):
   print str
@@ -65,6 +68,16 @@ def get_artifact(tempdir, url):
   fp.close()
   return localpath
 
+def boot_master(driver, pubkey):
+  loc = driver.list_locations()[0]
+  size = filter(lambda x: x.ram == 512, driver.list_sizes(loc))[0]
+  image = filter(lambda x: x.name.find("karmic") != -1, driver.list_images(loc))[0]
+  log("booting master machine with %s on %s size node" % ( image.name, size.name))
+  d = SSHKeyDeployment(pubkey)
+  node = driver.deploy_node(name="cbench-master.querna.org",
+                            location=loc, image=image, size=size, deploy=d)
+  return node
+
 def boot_servers(driver, count, pubkey):
   loc = driver.list_locations()[0]
   size = filter(lambda x: x.ram == 256, driver.list_sizes(loc))[0]
@@ -91,8 +104,27 @@ def storage_conf(server, peers):
         }
   t = Template(filename='storage-conf.xml.mako')
   return t.render(**d)
-  
-def push_files(key, local, servers):
+
+def push_master_files(key, master):
+  conninfo = {'hostname': master.public_ip[0],
+              'port': 22,
+              'username': 'root',
+              'pkey': key,
+              'allow_agent': False,
+              'look_for_keys': False}
+  client = paramiko.SSHClient()
+  client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+  client.connect(**conninfo)
+  try:
+    sftp = client.open_sftp()
+    exec_wait(client, "apt-get install -y python-virtualenv")
+    sftp.put(pjoin(ROOT_DIR, "py_and_thrift-ubuntu-bin.tar.bz2"), "py_and_thrift-ubuntu-bin.tar.bz2")
+    exec_wait(client, "tar -xvjf py_and_thrift-ubuntu-bin.tar.bz2 -C /")
+    sftp.put(pjoin(ROOT_DIR, "stress.py"), "stress.py")
+  finally:
+    client.close()
+
+def push_cassandra_files(key, local, servers):
   tarball = local[local.rfind("/")+1:]
   for s in servers:
     conninfo = {'hostname': s.public_ip[0],
@@ -110,12 +142,15 @@ def push_files(key, local, servers):
       exec_wait(client, "tar -xvzf %s" % (tarball))
       dname = tarball[:tarball.rfind("-")]
       sftp.symlink(dname, "cassandra")
+      sftp.put(pjoin(ROOT_DIR, "ivy-shit.tar.bz2"), "ivy-shit.tar.bz2")
+      exec_wait(client, "tar -xvjf ivy-shit.tar.bz2")
       conf = storage_conf(s, [x for x in servers if x != s])
       fp = sftp.open("cassandra/conf/storage-conf.xml", 'w')
       fp.write(conf)
       fp.close()
       # we do need... java for this :)
       exec_wait(client, "apt-get install -y openjdk-6-jdk")
+      exec_wait(client, "cd cassandra; bin/cassandra")
     finally:
       client.close()
 
@@ -132,8 +167,11 @@ def main():
     pubkey = "ssh-rsa %s cassandrabench@paul.querna.org" % (key.get_base64())
     driver = get_libcloud_driver()
     servers = boot_servers(driver, cassconf.CLUSTER_SIZE, pubkey)
-    push_files(key, local, servers)
-    #
+    push_cassandra_files(key, local, servers)
+    master = boot_master(driver, pubkey)
+    push_master_files(key, master)
+    print servers
+    print master
   finally:
     print "Cleaning up "+ tempdir
     shutil.rmtree(tempdir)
