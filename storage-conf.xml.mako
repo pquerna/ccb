@@ -57,7 +57,7 @@
 
 
   <Seeds>
-    % for seed in seeds:
+    % for seed in peers:
       <Seed>${seed}</Seed>
     % endfor
   </Seeds>
